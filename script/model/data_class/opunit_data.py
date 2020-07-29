@@ -41,7 +41,7 @@ def get_mini_runner_data(filename, model_results_path, model_map={}, predict_cac
         return _execution_get_mini_runner_data(filename, model_map, predict_cache)
     if "pipeline" in filename:
         # Handle online pipeline data
-        return _get_online_pipeline_data(filename, mini_models, model_map, predict_cache)
+        return _get_online_pipeline_data(filename, mini_models, predict_cache)
     if "gc" in filename or "log" in filename:
         # Handle of the gc or log data with interval-based conversion
         return _interval_get_mini_runner_data(filename, model_results_path)
@@ -153,7 +153,7 @@ def _execution_get_mini_runner_data(filename, model_map, predict_cache):
 
     return data_list
 
-def _get_online_pipeline_data(filename, mini_models, model_map, predict_cache):
+def _get_online_pipeline_data(filename, model_map, predict_cache):
     # Get the mini runner data for the execution engine
     data_map = {}
     execution_mode_index = data_info.RAW_EXECUTION_MODE_INDEX
@@ -171,37 +171,44 @@ def _get_online_pipeline_data(filename, mini_models, model_map, predict_cache):
             y_merged = np.array(data[-data_info.RECORD_METRICS_START:])
 
             # Get the opunits located within
-            opunits = []
+            opunits_and_ys = []
             features = line[features_vector_index].split(';')
+            pipeline_prediction = np.zeros(9)
+            # compute predicted values for opunit, and predicted total for pipeline
             for idx, feature in enumerate(features):
                 opunit = OpUnit[feature]
                 x_loc = [v[idx] if type(v) == list else v for v in x_multiple]
-                assert (opunit in mini_models),"OperatingUnit not found in the mini models"
-                # if opunit in model_map:
-                #     key = [opunit] + x_loc
-                #     if tuple(key) in predict_cache:
-                #         y_merged = y_merged - predict_cache[tuple(key)]
-                #     else:
-                #         predict = model_map[opunit].predict(np.array(x_loc).reshape(1, -1))[0]
-                #         predict_cache[tuple(key)] = predict
-                #         y_merged = y_merged - predict
-                #
-                #     y_merged = np.clip(y_merged, 0, None)
-                # else:
-                #     opunits.append((opunit, x_loc))
+                key = [opunit] + x_loc
+                assert (opunit in model_map),"OperatingUnit not found in the mini models"
+                if tuple(key) in predict_cache:
+                    predict = predict_cache[tuple(key)]
+                else:
+                    predict = model_map[opunit].predict(np.array(x_loc).reshape(1, -1))[0]
+                    predict_cache[tuple(key)] = predict
+                pipeline_prediction = pipeline_prediction + predict
 
-            if len(opunits) > 1:
-                raise Exception('Unmodelled OperatingUnits detected: {}'.format(opunits))
+            # compute the ratio of y values based on the predictions, and apply to get y_merged for this opunit
+            for idx, feature in enumerate(features):
+                opunit = OpUnit[feature]
+                x_loc = [v[idx] if type(v) == list else v for v in x_multiple]
+                key = [opunit] + x_loc
+                assert (tuple(key) in predict_cache),"key not found in the prediction cache"
+                predict = predict_cache[tuple(key)]
+                ratio = predict / pipeline_prediction
+                y_merged = y_merged * ratio
+                opunits_and_ys.append(((opunit, x_loc),y_merged))
 
-            # record real result
-            predict_cache[tuple([opunits[0][0]] + opunits[0][1])] = list(y_merged)
+            assert (len(opunits_and_ys) == len(features)),"didn't get all the pipeline's operating units"
 
-            # opunits[0][0] is the opunit
-            # opunits[0][1] is input feature
-            # y_merged should be post-subtraction
-            if opunits[0][0] not in data_map:
-                data_map[opunits[0][0]] = []
-            data_map[opunits[0][0]].append(opunits[0][1] + list(y_merged))
+            for thing in opunits_and_ys:
+                opunits = thing[0]
+                y_merged = thing[1]
+                # opunits[0] is the opunit
+                # opunits[1] is input feature
+                # y_merged should be post-subtraction
+                if opunits[0] not in data_map:
+                    data_map[opunits[0]] = []
+                data_map[opunits[0]].append(opunits[1] + list(y_merged))
 
     data_list = []
     for opunit, values in data_map.items():

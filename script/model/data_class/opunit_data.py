@@ -23,7 +23,7 @@ def write_extended_data(output_path, symbol, index_value_list, data_map):
         io_util.write_csv_result(output_path, key, value)
 
 
-def get_mini_runner_data(filename, model_results_path, model_map={}, predict_cache={}, ):
+def get_mini_runner_data(filename, model_results_path, model_map={}, predict_cache={}, mini_models=None ):
     """Get the training data from the mini runner
 
     :param filename: the input data file
@@ -41,7 +41,7 @@ def get_mini_runner_data(filename, model_results_path, model_map={}, predict_cac
         return _execution_get_mini_runner_data(filename, model_map, predict_cache)
     if "pipeline" in filename:
         # Handle online pipeline data
-        return _pipeline_get_mini_runner_data(filename, model_map, predict_cache)
+        return _get_online_pipeline_data(filename, mini_models, model_map, predict_cache)
     if "gc" in filename or "log" in filename:
         # Handle of the gc or log data with interval-based conversion
         return _interval_get_mini_runner_data(filename, model_results_path)
@@ -153,7 +153,7 @@ def _execution_get_mini_runner_data(filename, model_map, predict_cache):
 
     return data_list
 
-def _pipeline_get_mini_runner_data(filename, model_map, predict_cache):
+def _get_online_pipeline_data(filename, mini_models, model_map, predict_cache):
     # Get the mini runner data for the execution engine
     data_map = {}
     execution_mode_index = data_info.RAW_EXECUTION_MODE_INDEX
@@ -176,18 +176,19 @@ def _pipeline_get_mini_runner_data(filename, model_map, predict_cache):
             for idx, feature in enumerate(features):
                 opunit = OpUnit[feature]
                 x_loc = [v[idx] if type(v) == list else v for v in x_multiple]
-                if opunit in model_map:
-                    key = [opunit] + x_loc
-                    if tuple(key) in predict_cache:
-                        y_merged = y_merged - predict_cache[tuple(key)]
-                    else:
-                        predict = model_map[opunit].predict(np.array(x_loc).reshape(1, -1))[0]
-                        predict_cache[tuple(key)] = predict
-                        y_merged = y_merged - predict
-
-                    y_merged = np.clip(y_merged, 0, None)
-                else:
-                    opunits.append((opunit, x_loc))
+                assert (opunit in mini_models),"OperatingUnit not found in the mini models"
+                # if opunit in model_map:
+                #     key = [opunit] + x_loc
+                #     if tuple(key) in predict_cache:
+                #         y_merged = y_merged - predict_cache[tuple(key)]
+                #     else:
+                #         predict = model_map[opunit].predict(np.array(x_loc).reshape(1, -1))[0]
+                #         predict_cache[tuple(key)] = predict
+                #         y_merged = y_merged - predict
+                #
+                #     y_merged = np.clip(y_merged, 0, None)
+                # else:
+                #     opunits.append((opunit, x_loc))
 
             if len(opunits) > 1:
                 raise Exception('Unmodelled OperatingUnits detected: {}'.format(opunits))

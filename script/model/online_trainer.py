@@ -22,14 +22,15 @@ np.set_printoptions(edgeitems=10)
 np.set_printoptions(suppress=True)
 
 
-class MiniTrainer:
+class OnlineTrainer:
     """
     Trainer for the mini models
     """
 
-    def __init__(self, input_path, model_metrics_path, ml_models, test_ratio):
+    def __init__(self, input_path, model_metrics_path, mini_models, ml_models, test_ratio):
         self.input_path = input_path
         self.model_metrics_path = model_metrics_path
+        self.mini_models = mini_models
         self.ml_models = ml_models
         self.test_ratio = test_ratio
         self.model_map = {}
@@ -127,7 +128,7 @@ class MiniTrainer:
         for filename in sorted(glob.glob(os.path.join(self.input_path, '*.csv'))):
             print(filename)
             data_list = opunit_data.get_mini_runner_data(filename, self.model_metrics_path, self.model_map,
-                                                         self.stats_map)
+                                                         self.stats_map, self.mini_models)
             for data in data_list:
                 self._train_data(data, summary_file)
 
@@ -155,11 +156,10 @@ if __name__ == '__main__':
 
     logging_util.init_logging(args.log)
 
-    if args.mini_model_file:
-        with open(args.mini_model_file, 'rb') as pickle_file:
-            model_map = pickle.load(pickle_file)
+    with open(args.mini_model_file, 'rb') as pickle_file:
+        model_map = pickle.load(pickle_file)
 
-    trainer = MiniTrainer(args.input_path, args.model_results_path, args.ml_models, args.test_ratio)
+    trainer = OnlineTrainer(args.input_path, args.model_results_path, model_map, args.ml_models, args.test_ratio)
     trained_model_map = trainer.train()
     with open(args.save_path + '/mini_model_map.pickle', 'wb') as file:
         pickle.dump(trained_model_map, file)

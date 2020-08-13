@@ -459,7 +459,7 @@ void VM::Interpret(const uint8_t *ip, Frame *frame) {  // NOLINT
 
   OP(ExecutionContextAddRowsAffected) : {
     auto *exec_ctx = frame->LocalAt<exec::ExecutionContext *>(READ_LOCAL_ID());
-    auto rows_affected = frame->LocalAt<int64_t>(READ_LOCAL_ID());
+    auto rows_affected = frame->LocalAt<int32_t>(READ_LOCAL_ID());
 
     OpExecutionContextAddRowsAffected(exec_ctx, rows_affected);
     DISPATCH_NEXT();
@@ -495,8 +495,8 @@ void VM::Interpret(const uint8_t *ip, Frame *frame) {  // NOLINT
 
   OP(ExecutionContextEndPipelineTracker) : {
     auto *exec_ctx = frame->LocalAt<exec::ExecutionContext *>(READ_LOCAL_ID());
-    auto query_id = execution::query_id_t{frame->LocalAt<uint64_t>(READ_LOCAL_ID())};
-    auto pipeline_id = execution::pipeline_id_t{frame->LocalAt<uint64_t>(READ_LOCAL_ID())};
+    auto query_id = execution::query_id_t{frame->LocalAt<uint32_t>(READ_LOCAL_ID())};
+    auto pipeline_id = execution::pipeline_id_t{frame->LocalAt<uint32_t>(READ_LOCAL_ID())};
     OpExecutionContextEndPipelineTracker(exec_ctx, query_id, pipeline_id);
     DISPATCH_NEXT();
   }

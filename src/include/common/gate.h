@@ -3,6 +3,7 @@
 #include <emmintrin.h>
 
 #include <atomic>
+#include <thread>
 
 #include "common/macros.h"
 
@@ -30,13 +31,23 @@ class Gate {
    */
   void Unlock() { count_--; }
 
+  void pause_for(const uint8_t delay) {
+    for (uint8_t i = 0; i < delay; i++) _mm_pause();
+  }
+
   /**
    * Traverses the gate unless there are currently locks emplaced.  If there
    * are locks on the gate, spin until its free.
    */
   void Traverse() {
+    uint8_t i = 1;
     while (count_.load() > 0) {
-      _mm_pause();
+      if (i <= 16) {
+        pause_for(i);
+        i *= 2;
+      } else {
+        std::this_thread::yield();
+      }
     }
   }
 

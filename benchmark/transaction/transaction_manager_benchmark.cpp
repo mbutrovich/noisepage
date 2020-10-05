@@ -22,7 +22,7 @@ class TransactionManagerBenchmark : public benchmark::Fixture {
 
   std::unique_ptr<DBMain> db_main_;
 
-  static constexpr uint32_t num_txns_ = 1000000;
+  static constexpr uint32_t num_txns_ = 100000;
 };
 
 // NOLINTNEXTLINE
@@ -57,7 +57,7 @@ BENCHMARK_DEFINE_F(TransactionManagerBenchmark, NoOp)(benchmark::State &state) {
 BENCHMARK_REGISTER_F(TransactionManagerBenchmark, NoOp)
   ->Unit(benchmark::kMillisecond)
   ->UseManualTime()
-  ->MinTime(3);
+  ->MinTime(10);
 // clang-format on
 
 }  // namespace terrier

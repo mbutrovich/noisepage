@@ -35,7 +35,7 @@ class Gate {
    * Traverses the gate unless there are currently locks emplaced.  If there
    * are locks on the gate, spin until its free.
    */
-  void Traverse() {
+  void Traverse() const {
     uint8_t pause_duration = 1;
     while (count_.load() > 0) {
       if (pause_duration <= 16) {
@@ -88,7 +88,7 @@ class Gate {
   };
 
  private:
-  void PauseFor(const uint8_t duration) {
+  static void PauseFor(const uint8_t duration) {
     for (uint8_t i = 0; i < duration; i++) _mm_pause();
   }
 

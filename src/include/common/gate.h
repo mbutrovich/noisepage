@@ -3,7 +3,6 @@
 #include <emmintrin.h>
 
 #include <atomic>
-#include <thread>
 
 #include "common/macros.h"
 
@@ -35,15 +34,9 @@ class Gate {
    * Traverses the gate unless there are currently locks emplaced.  If there
    * are locks on the gate, spin until its free.
    */
-  void Traverse() const {
-    uint8_t pause_duration = 1;
+  void Traverse() {
     while (count_.load() > 0) {
-      if (pause_duration <= 16) {
-        PauseFor(pause_duration);
-        pause_duration *= 2;
-      } else {
-        std::this_thread::yield();
-      }
+      _mm_pause();
     }
   }
 
@@ -88,10 +81,6 @@ class Gate {
   };
 
  private:
-  static void PauseFor(const uint8_t duration) {
-    for (uint8_t i = 0; i < duration; i++) _mm_pause();
-  }
-
   std::atomic<int64_t> count_ = 0;
 };
 

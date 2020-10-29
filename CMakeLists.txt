@@ -1318,6 +1318,31 @@ endif ()
 unset(CLANG_TIDY_BIN)
 
 #######################################################################################################################
+# clang-tidy-fix  :   Run clang-tidy static analysis on the codebase and apply fixes.
+#######################################################################################################################
+
+if (TARGET check-clang-tidy)
+    find_program(CLANG_APPLY_REPLACEMENTS_BIN NAMES clang-apply-replacements-8 clang-apply-replacements HINTS ${CLANG_TOOLS_SEARCH_PATH})
+    if ("${CLANG_APPLY_REPLACEMENTS_BIN}" STREQUAL "CLANG_APPLY_REPLACEMENTS_BIN-NOTFOUND")
+        message(STATUS "[MISSING] clang-apply-replacements not found, no clang-tidy-fix.")
+    else ()
+        # Run clang-tidy and then apply fixes if any errors are found.
+        # clang-tidy automatically searches for a .clang-tidy file in parent directories.
+        add_custom_target(clang-tidy-fix
+                ${BUILD_SUPPORT_DIR}/run-clang-tidy.py                            # Run LLVM's clang-tidy script.
+                -clang-tidy-binary ${CLANG_TIDY_BIN}                              # Using the specified clang-tidy binary.
+                -clang-apply-replacements ${CLANG_APPLY_REPLACEMENTS_BIN}         # Using the specified clang-apply-replacements binary.
+                -p ${CMAKE_BINARY_DIR}                                            # Using the generated compile commands.
+                -fix                                                              # Applying fixes.
+                USES_TERMINAL
+                )
+        add_custom_command(TARGET clang-tidy-fix DEPENDS benchmark gflags gtest)
+        message(STATUS "[ADDED] clang-tidy-fix (${CLANG_APPLY_REPLACEMENTS_BIN})")
+    endif ()
+    unset(CLANG_APPLY_REPLACEMENTS_BIN)
+endif ()
+
+#######################################################################################################################
 # Apply +x permissions to all scripts in the build-support folder.
 #######################################################################################################################
 

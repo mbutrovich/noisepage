@@ -39,11 +39,11 @@ class CheckConfig(object):
             We tell git to only diff into the past (...) 
             We also tell git to only diff new or modified files (filter=AM)
         """
-        with os.popen('(git ls-files --full-name :/;'
-                      ' git diff origin/master... --name-only --diff-filter=AM)' 
-                      '| sort | uniq -u') as diff:
-            for line in diff:
-                self.ignore_pats.append("/%s" % line.strip())
+        # with os.popen('(git ls-files --full-name :/;'
+        #               ' git diff origin/master... --name-only --diff-filter=AM)'
+        #               '| sort | uniq -u') as diff:
+        #     for line in diff:
+        #         self.ignore_pats.append("/%s" % line.strip())
 
     def should_skip(self, path):
         """ Should execution of clang-tidy be skipped?

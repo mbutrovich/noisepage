@@ -35,9 +35,9 @@ OSX_TEST_PACKAGES=(\
 
 LINUX_BUILD_PACKAGES=(\
   "build-essential" \
-  "clang-8" \
-  "clang-format-8" \
-  "clang-tidy-8" \
+  "clang-10" \
+  "clang-format-10" \
+  "clang-tidy-10" \
   "cmake" \
   "doxygen" \
   "git" \

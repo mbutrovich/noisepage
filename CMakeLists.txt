@@ -724,7 +724,7 @@ set_target_properties(gen_opt_bc PROPERTIES CXX_EXTENSIONS OFF ENABLE_EXPORTS ON
 if (APPLE)
     set(CLANG "${LLVM_TOOLS_BINARY_DIR}/clang++")
 else ()
-    find_program(CLANG NAMES "clang++-8" "clang++" REQUIRED)
+    find_program(CLANG NAMES "clang++-10" "clang++" REQUIRED)
 endif ()
 
 add_dependencies(noisepage_static gen_opt_bc)
@@ -1154,8 +1154,8 @@ set(CLANG_TOOLS_SEARCH_PATH
         "/usr/local/bin"
         "/usr/bin"
         "/usr/local/opt/llvm/bin"
-        "/usr/local/opt/llvm@8/bin"
-        "/usr/local/Cellar/llvm/8.0.1/bin"
+        "/usr/local/opt/llvm@10/bin"
+        "/usr/local/Cellar/llvm@10/8.0.1/bin" # FIXME(Matt): fix this
         )
 
 #######################################################################################################################
@@ -1255,7 +1255,7 @@ endif ()
 # check-format      :   Check if the codebase is formatted according to standards.
 #######################################################################################################################
 
-find_program(CLANG_FORMAT_BIN NAMES clang-format-8 clang-format HINTS ${CLANG_TOOLS_SEARCH_PATH})
+find_program(CLANG_FORMAT_BIN NAMES clang-format-10 clang-format HINTS ${CLANG_TOOLS_SEARCH_PATH})
 if ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
     message(STATUS "[MISSING] clang-format not found, no format and no check-format.")
 else ()
@@ -1300,7 +1300,7 @@ unset(CLANG_FORMAT_BIN)
 # check-clang-tidy  :   Run clang-tidy static analysis on the codebase.
 #######################################################################################################################
 
-find_program(CLANG_TIDY_BIN NAMES clang-tidy-8 clang-tidy HINTS ${CLANG_TOOLS_SEARCH_PATH})
+find_program(CLANG_TIDY_BIN NAMES clang-tidy-10 clang-tidy HINTS ${CLANG_TOOLS_SEARCH_PATH})
 if ("${CLANG_TIDY_BIN}" STREQUAL "CLANG_TIDY_BIN-NOTFOUND")
     message(STATUS "[MISSING] clang-tidy not found, no check-clang-tidy.")
 else ()

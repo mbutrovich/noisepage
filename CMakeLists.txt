@@ -1322,7 +1322,7 @@ unset(CLANG_TIDY_BIN)
 #######################################################################################################################
 
 if (TARGET check-clang-tidy)
-    find_program(CLANG_APPLY_REPLACEMENTS_BIN NAMES clang-apply-replacements-8 clang-apply-replacements HINTS ${CLANG_TOOLS_SEARCH_PATH})
+    find_program(CLANG_APPLY_REPLACEMENTS_BIN NAMES clang-apply-replacements-10 clang-apply-replacements HINTS ${CLANG_TOOLS_SEARCH_PATH})
     if ("${CLANG_APPLY_REPLACEMENTS_BIN}" STREQUAL "CLANG_APPLY_REPLACEMENTS_BIN-NOTFOUND")
         message(STATUS "[MISSING] clang-apply-replacements not found, no clang-tidy-fix.")
     else ()

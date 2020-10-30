@@ -2,35 +2,37 @@
 #
 #===- run-clang-tidy.py - Parallel clang-tidy runner ---------*- python -*--===#
 #
-#                     The LLVM Compiler Infrastructure
+# Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
-# This file is distributed under the University of Illinois Open Source
-# License. See LICENSE.TXT for details.
-#
-# Modified from the LLVM project for the Terrier project.
 #===------------------------------------------------------------------------===#
 # FIXME: Integrate with clang-tidy-diff.py
 
 """
 Parallel clang-tidy runner
 ==========================
+
 Runs clang-tidy over all files in a compilation database. Requires clang-tidy
 and clang-apply-replacements in $PATH.
+
 Example invocations.
 - Run clang-tidy on all files in the current working directory with a default
   set of checks and show warnings in the cpp files and all project headers.
     run-clang-tidy.py $PWD
+
 - Fix all header guards.
     run-clang-tidy.py -fix -checks=-*,llvm-header-guard
+
 - Fix all header guards included from clang-tidy and header guards
   for clang-tidy headers.
     run-clang-tidy.py -fix -checks=-*,llvm-header-guard extra/clang-tidy \
                       -header-filter=extra/clang-tidy
+
 Compilation database setup:
 http://clang.llvm.org/docs/HowToSetupToolingForLLVM.html
 """
 
-from __future__ import division
 from __future__ import print_function
 
 import argparse
@@ -46,7 +48,11 @@ import sys
 import tempfile
 import threading
 import traceback
-# import yaml   # NOISEPAGE: not necessary if we don't want automatic fixes
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 from run_clang_tidy_extra import CheckConfig
 
@@ -107,6 +113,7 @@ def get_tidy_invocation(f, clang_tidy_binary, checks, tmpdir, build_path,
     start.append(f)
     return start
 
+
 def merge_replacement_files(tmpdir, mergefile):
     """Merge all replacement files in a directory into a single file"""
     # The fixes suggested by clang-tidy >= 4.0.0 are given under
@@ -130,6 +137,7 @@ def merge_replacement_files(tmpdir, mergefile):
     else:
         # Empty the file:
         open(mergefile, 'w').close()
+
 
 def check_clang_apply_replacements_binary(args):
     """Checks if invoking supplied clang-apply-replacements binary works."""
@@ -163,16 +171,11 @@ def run_tidy(args, tmpdir, build_path, queue, lock, failed_files):
                                          tmpdir, build_path, args.header_filter,
                                          args.extra_arg, args.extra_arg_before,
                                          args.quiet, args.config)
+
         proc = subprocess.Popen(invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, err = proc.communicate()
         if proc.returncode != 0:
             failed_files.append(name)
-        # NOISEPAGE: we write our own printing logic
-        # with lock:
-        #     sys.stdout.write(' '.join(invocation) + '\n' + output + '\n')
-        #     if err > 0:
-        #         sys.stderr.write(err + '\n')
-        # In particular, we only want important lines:
         with lock:
             output = output.decode('utf-8') if output is not None else None
             err = err.decode('utf-8') if output is not None else None
@@ -183,6 +186,7 @@ def run_tidy(args, tmpdir, build_path, queue, lock, failed_files):
                 sys.stdout.write('\n')
                 sys.stdout.write(output)
         queue.task_done()
+
 
 def main():
     parser = argparse.ArgumentParser(description='Runs clang-tidy over all files '
@@ -211,9 +215,10 @@ def main():
                              'headers to output diagnostics from. Diagnostics from '
                              'the main file of each translation unit are always '
                              'displayed.')
-    parser.add_argument('-export-fixes', metavar='filename', dest='export_fixes',
-                        help='Create a yaml file to store suggested fixes in, '
-                             'which can be applied with clang-apply-replacements.')
+    if yaml:
+        parser.add_argument('-export-fixes', metavar='filename', dest='export_fixes',
+                            help='Create a yaml file to store suggested fixes in, '
+                                 'which can be applied with clang-apply-replacements.')
     parser.add_argument('-j', type=int, default=0,
                         help='number of tidy instances to be run in parallel.')
     parser.add_argument('files', nargs='*', default=['.*'],
@@ -251,7 +256,12 @@ def main():
         if args.checks:
             invocation.append('-checks=' + args.checks)
         invocation.append('-')
-        subprocess.check_call(invocation)
+        if args.quiet:
+            # Even with -quiet we still want to check if we can call clang-tidy.
+            with open(os.devnull, 'w') as dev_null:
+                subprocess.check_call(invocation, stdout=dev_null)
+        else:
+            subprocess.check_call(invocation)
     except:
         print("Unable to run clang-tidy.", file=sys.stderr)
         sys.exit(1)
@@ -264,16 +274,12 @@ def main():
     # NoisePage hack: don't check third party dependencies.
     files = [filepath for filepath in files if '/_deps/' not in filepath]
 
-    # Remove any duplicates from the files list. In theory that shouldn't happen, but we've seen it when there are
-    # quirks in the build targets
-    files = list(set(files))
-
     max_task = args.j
     if max_task == 0:
         max_task = multiprocessing.cpu_count()
 
     tmpdir = None
-    if args.fix or args.export_fixes:
+    if args.fix or (yaml and args.export_fixes):
         check_clang_apply_replacements_binary(args)
         tmpdir = tempfile.mkdtemp()
 
@@ -282,7 +288,7 @@ def main():
 
     return_code = 0
     try:
-        # Initialize file blacklist 
+        # Initialize file blacklist
         cc = CheckConfig()
         # Spin up a bunch of tidy-launching threads.
         task_queue = queue.Queue(max_task)
@@ -295,25 +301,9 @@ def main():
             t.daemon = True
             t.start()
 
-        def update_progress(current_file, num_files):
-            pct = int(current_file / num_files * 100)
-            if current_file == num_files or pct % max(2, num_files // 10) == 0:
-                stars = pct // 10
-                spaces = 10 - pct // 10
-                print('\rProgress: [{}{}] ({}% / File {} of {})'.format(
-                    'x' * stars,
-                    ' ' * spaces,
-                    pct,
-                    current_file,
-                    num_files
-                ), end='')
-                sys.stdout.flush()
-                if current_file == num_files:
-                    print()
-
         # Fill the queue with files.
         for i, name in enumerate(files):
-            if cc.should_skip(name): 
+            if cc.should_skip(name):
                 continue
 
             put_file = False
@@ -322,14 +312,12 @@ def main():
                     if file_name_re.search(name):
                         task_queue.put(name, block=True, timeout=300)
                         put_file = True
-                    # update_progress(i, len(files))
                 except queue.Full:
                     print('Still waiting to put files into clang-tidy queue.')
                     sys.stdout.flush()
 
         # Wait for all threads to be done.
         task_queue.join()
-        # update_progress(100, 100)
         if len(failed_files):
             return_code = 1
             # NOISEPAGE: We want to see the failed files
@@ -345,7 +333,7 @@ def main():
             shutil.rmtree(tmpdir)
         os.kill(0, 9)
 
-    if args.export_fixes:
+    if yaml and args.export_fixes:
         print('Writing fixes to ' + args.export_fixes + ' ...')
         try:
             merge_replacement_files(tmpdir, args.export_fixes)

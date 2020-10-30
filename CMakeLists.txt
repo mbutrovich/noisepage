@@ -724,7 +724,7 @@ set_target_properties(gen_opt_bc PROPERTIES CXX_EXTENSIONS OFF ENABLE_EXPORTS ON
 if (APPLE)
     set(CLANG "${LLVM_TOOLS_BINARY_DIR}/clang++")
 else ()
-    find_program(CLANG NAMES "clang++-10" "clang++" REQUIRED)
+    find_program(CLANG NAMES "clang++-8" "clang++" REQUIRED)
 endif ()
 
 add_dependencies(noisepage_static gen_opt_bc)

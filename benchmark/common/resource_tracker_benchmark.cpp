@@ -4,6 +4,7 @@
 
 #include "benchmark/benchmark.h"
 #include "common/resource_tracker.h"
+#include "common/scoped_timer.h"
 #include "folly/tracing/StaticTracepoint.h"
 
 namespace noisepage {
@@ -28,6 +29,22 @@ struct features {
   uint8_t num_concurrent[MAX_FEATURES];
 };
 
+static void PauseFor(const uint8_t duration) {
+  for (uint8_t i = 0; i < duration; i++) _mm_pause();
+}
+
+static void WaitForBPF() {
+  uint8_t pause_duration = 1;
+  while (!FOLLY_SDT_IS_ENABLED(, tracker__done)) {
+    if (pause_duration <= 16) {
+      PauseFor(pause_duration);
+      pause_duration *= 2;
+    } else {
+      std::this_thread::yield();
+    }
+  }
+}
+
 /**
  * These benchmarks exist to verify the performance difference between grouped and ungrouped perf counters. We do not
  * include them in our CI regression checks since their behavior is determined more by the OS than our wrapper.
@@ -35,35 +52,84 @@ struct features {
 class ResourceTrackerBenchmark : public benchmark::Fixture {};
 
 // NOLINTNEXTLINE
-BENCHMARK_DEFINE_F(ResourceTrackerBenchmark, ResourceTracker)(benchmark::State &state) {
+BENCHMARK_DEFINE_F(ResourceTrackerBenchmark, ResourceTrackerStart)(benchmark::State &state) {
   common::ResourceTracker tracker;
+  uint64_t elapsed_us;
   // NOLINTNEXTLINE
   for (auto _ : state) {
-    tracker.Start();
+    {
+      common::ScopedTimer<std::chrono::microseconds> timer(&elapsed_us);
+      tracker.Start();
+    }
     tracker.Stop();
+    state.SetIterationTime(static_cast<double>(elapsed_us) / 1e6);
   }
   state.SetItemsProcessed(state.iterations());
 }
 
 // NOLINTNEXTLINE
-BENCHMARK_DEFINE_F(ResourceTrackerBenchmark, BPF)(benchmark::State &state) {
-  struct features feats = {};
-
-  while (!FOLLY_SDT_IS_ENABLED(, tracker__done)) {
-    _mm_pause();
+BENCHMARK_DEFINE_F(ResourceTrackerBenchmark, ResourceTrackerStop)(benchmark::State &state) {
+  common::ResourceTracker tracker;
+  uint64_t elapsed_us;
+  // NOLINTNEXTLINE
+  for (auto _ : state) {
+    tracker.Start();
+    {
+      common::ScopedTimer<std::chrono::microseconds> timer(&elapsed_us);
+      tracker.Stop();
+    }
+    state.SetIterationTime(static_cast<double>(elapsed_us) / 1e6);
   }
+  state.SetItemsProcessed(state.iterations());
+}
+
+// NOLINTNEXTLINE
+BENCHMARK_DEFINE_F(ResourceTrackerBenchmark, BPFStart)(benchmark::State &state) {
+  struct features feats = {};
+  uint64_t elapsed_us;
+
+  WaitForBPF();
+
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+  // NOLINTNEXTLINE
+  for (auto _ : state) {
+    {
+      common::ScopedTimer<std::chrono::microseconds> timer(&elapsed_us);
+      FOLLY_SDT(, tracker__start);
+    }
+    FOLLY_SDT_WITH_SEMAPHORE(, tracker__done, &feats);
+    state.SetIterationTime(static_cast<double>(elapsed_us) / 1e6);
+  }
+  state.SetItemsProcessed(state.iterations());
+}
+
+// NOLINTNEXTLINE
+BENCHMARK_DEFINE_F(ResourceTrackerBenchmark, BPFStop)(benchmark::State &state) {
+  struct features feats = {};
+  uint64_t elapsed_us;
+
+  WaitForBPF();
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
   // NOLINTNEXTLINE
   for (auto _ : state) {
     FOLLY_SDT(, tracker__start);
-    FOLLY_SDT_WITH_SEMAPHORE(, tracker__done, &feats);
+    {
+      common::ScopedTimer<std::chrono::microseconds> timer(&elapsed_us);
+      FOLLY_SDT_WITH_SEMAPHORE(, tracker__done, &feats);
+    }
+    state.SetIterationTime(static_cast<double>(elapsed_us) / 1e6);
   }
   state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK_REGISTER_F(ResourceTrackerBenchmark, ResourceTracker);
+BENCHMARK_REGISTER_F(ResourceTrackerBenchmark, ResourceTrackerStart)->Repetitions(10);
 
-BENCHMARK_REGISTER_F(ResourceTrackerBenchmark, BPF);
+BENCHMARK_REGISTER_F(ResourceTrackerBenchmark, ResourceTrackerStop)->Repetitions(10);
+
+BENCHMARK_REGISTER_F(ResourceTrackerBenchmark, BPFStart)->Repetitions(10);
+
+BENCHMARK_REGISTER_F(ResourceTrackerBenchmark, BPFStop)->Repetitions(10);
 }  // namespace noisepage

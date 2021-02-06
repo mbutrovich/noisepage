@@ -31,6 +31,8 @@ class PipelineMetricRawData : public AbstractRawData {
     auto other_db_metric = dynamic_cast<PipelineMetricRawData *>(other);
     if (!other_db_metric->pipeline_data_.empty()) {
       pipeline_data_.splice(pipeline_data_.cend(), other_db_metric->pipeline_data_);
+      size_ += other_db_metric->size_;
+      other_db_metric->size_ = 0;
     }
   }
 
@@ -71,6 +73,7 @@ class PipelineMetricRawData : public AbstractRawData {
       outfile << std::endl;
     }
     pipeline_data_.clear();
+    size_ = 0;
   }
 
   /**
@@ -95,7 +98,9 @@ class PipelineMetricRawData : public AbstractRawData {
   void RecordPipelineData(execution::query_id_t query_id, execution::pipeline_id_t pipeline_id, uint8_t execution_mode,
                           std::vector<selfdriving::ExecutionOperatingUnitFeature> &&features,
                           const common::ResourceTracker::Metrics &resource_metrics) {
+    if (size_ > SIZE_LIMIT) return;
     pipeline_data_.emplace_back(query_id, pipeline_id, execution_mode, std::move(features), resource_metrics);
+    size_++;
   }
 
   struct PipelineData {
@@ -193,6 +198,8 @@ class PipelineMetricRawData : public AbstractRawData {
   };
 
   std::list<PipelineData> pipeline_data_;
+  uint64_t size_ = 0;
+  static constexpr size_t SIZE_LIMIT = 32768 / sizeof(PipelineData);
 };
 
 /**

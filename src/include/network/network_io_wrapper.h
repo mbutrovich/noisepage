@@ -79,6 +79,10 @@ class NetworkIoWrapper {
    */
   common::ManagedPointer<WriteQueue> GetWriteQueue() { return common::ManagedPointer<WriteQueue>(out_); }
 
+  size_t GetBytesRead() const { return in_->Size(); }
+
+  size_t GetBytesWritten() const { return out_->Size(); }
+
  private:
   // The file descriptor associated with this NetworkIoWrapper
   const int sock_fd_;

@@ -36,7 +36,13 @@ class ResourceTracker {
     /** The number of the CPU on which the thread is currently executing */
     int cpu_id_;
     /** The memory consumption (in bytes) */
-    uint64_t memory_b_;
+    uint64_t memory_b_ = 0;
+
+    /** The network read activity (in bytes) */
+    uint64_t network_bytes_read_ = 0;
+
+    /** The network write activity (in bytes) */
+    uint64_t network_bytes_written_ = 0;
 
     /**
      * Writes the metrics out to ofstreams
@@ -47,13 +53,14 @@ class ResourceTracker {
       outfile << start_ << ", " << cpu_id_ << ", " << counters_.cpu_cycles_ << ", " << counters_.instructions_ << ", "
               << counters_.cache_references_ << ", " << counters_.cache_misses_ << ", "
               << ((ref_cycles == 0) ? 0 : counters_.ref_cpu_cycles_ / ref_cycles) << ", " << rusage_.ru_inblock << ", "
-              << rusage_.ru_oublock << ", " << memory_b_ << ", " << elapsed_us_;
+              << rusage_.ru_oublock << ", " << memory_b_ << ", " << network_bytes_read_ << ", "
+              << network_bytes_written_ << ", " << elapsed_us_;
     }
 
     /** Column headers to emit when writing to CSV */
     static constexpr std::string_view COLUMNS = {
         "start_time, cpu_id, cpu_cycles, instructions, cache_ref, cache_miss, ref_cpu_cycles, "
-        "block_read, block_write, memory_b, elapsed_us"};
+        "block_read, block_write, memory_b, network_bytes_read, network_bytes_written, elapsed_us"};
   };
 
   /**
@@ -64,6 +71,8 @@ class ResourceTracker {
     perf_monitor_.Start();
     rusage_monitor_.Start();
     metrics_.memory_b_ = 0;
+    metrics_.network_bytes_read_ = 0;
+    metrics_.network_bytes_written_ = 0;
     metrics_.start_ = metrics::MetricsUtil::Now();
   }
 
@@ -91,9 +100,6 @@ class ResourceTracker {
    */
   bool IsRunning() const { return running_; }
 
- private:
-  friend class execution::exec::ExecutionContext;
-
   /**
    * Since we cannot directly obtained the per-thread memory allocation from the OS, and to avoid introducing
    * dependency of the metrics system deep into the execution engine, we currently rely on customized
@@ -102,6 +108,11 @@ class ResourceTracker {
    */
   void SetMemory(const size_t memory_b) { metrics_.memory_b_ = memory_b; }
 
+  void SetNetworkBytesRead(const uint64_t bytes) { metrics_.network_bytes_read_ = bytes; }
+
+  void SetNetworkBytesWritten(const uint64_t bytes) { metrics_.network_bytes_written_ = bytes; }
+
+ private:
   PerfMonitor<COUNT_CHILDREN_THREADS> perf_monitor_;
   RusageMonitor rusage_monitor_{false};
 

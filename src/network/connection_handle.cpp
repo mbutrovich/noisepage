@@ -144,6 +144,7 @@ ConnectionHandle::ConnectionHandle(int sock_fd, common::ManagedPointer<Connectio
       protocol_interpreter_(std::move(interpreter)) {
   context_.SetCallback(Callback, this);
   context_.SetConnectionID(static_cast<connection_id_t>(sock_fd));
+  context_.SetNetworkIoWrapper(common::ManagedPointer<const NetworkIoWrapper>(io_wrapper_.get()));
 }
 
 ConnectionHandle::~ConnectionHandle() = default;

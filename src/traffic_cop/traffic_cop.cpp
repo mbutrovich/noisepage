@@ -407,6 +407,10 @@ TrafficCopResult TrafficCop::RunExecutableQuery(const common::ManagedPointer<net
                                                 const common::ManagedPointer<network::Portal> portal) const {
   NOISEPAGE_ASSERT(connection_ctx->TransactionState() == network::NetworkTransactionStateType::BLOCK,
                    "Not in a valid txn. This should have been caught before calling this function.");
+
+  auto bytes_read UNUSED_ATTRIBUTE = connection_ctx->GetNetworkWrapperBytesRead();
+  auto bytes_written UNUSED_ATTRIBUTE = connection_ctx->GetNetworkWrapperBytesWritten();
+
   const auto query_type = portal->GetStatement()->GetQueryType();
   const auto physical_plan = portal->OptimizeResult()->GetPlanNode();
   NOISEPAGE_ASSERT(query_type == network::QueryType::QUERY_SELECT || query_type == network::QueryType::QUERY_INSERT ||
@@ -457,6 +461,9 @@ TrafficCopResult TrafficCop::RunExecutableQuery(const common::ManagedPointer<net
     error.AddField(common::ErrorField::FILE, e.GetFile());
     return {ResultType::ERROR, error};
   }
+
+  bytes_read = connection_ctx->GetNetworkWrapperBytesRead();
+  bytes_written = connection_ctx->GetNetworkWrapperBytesWritten();
 
   const bool query_trace_metrics_enabled =
       common::thread_context.metrics_store_ != nullptr &&

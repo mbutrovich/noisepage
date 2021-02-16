@@ -13,6 +13,8 @@
 
 namespace noisepage::network {
 
+class NetworkIoWrapper;
+
 /**
  * A ConnectionContext stores the state of a connection. There should be as little as possible that is protocol-specific
  * in this layer, and if you find yourself wanting to put more the design should be discussed.
@@ -37,6 +39,7 @@ class ConnectionContext {
     callback_ = nullptr;
     callback_arg_ = nullptr;
     catalog_cache_.Reset(transaction::INITIAL_TXN_TIMESTAMP);
+    network_io_wrapper_ = nullptr;
   }
 
   /**
@@ -166,6 +169,14 @@ class ConnectionContext {
    */
   common::ManagedPointer<catalog::CatalogCache> GetCatalogCache() { return common::ManagedPointer(&catalog_cache_); }
 
+  void SetNetworkIoWrapper(const common::ManagedPointer<const NetworkIoWrapper> network_io_wrapper) {
+    network_io_wrapper_ = network_io_wrapper;
+  }
+
+  size_t GetNetworkWrapperBytesRead() const;
+
+  size_t GetNetworkWrapperBytesWritten() const;
+
  private:
   /**
    * This is a unique identifier (among currently open connections, not over the lifetime of the system) for this
@@ -215,6 +226,9 @@ class ConnectionContext {
   void *callback_arg_;
 
   catalog::CatalogCache catalog_cache_;
+
+  // Used for information about the buffer states
+  common::ManagedPointer<const network::NetworkIoWrapper> network_io_wrapper_;
 };
 
 }  // namespace noisepage::network

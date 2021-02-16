@@ -51,13 +51,13 @@ class Buffer {
    * @return Whether there is any more bytes between the cursor and
    *         the end of the buffer
    */
-  bool HasMore(size_t bytes = 1) { return offset_ + bytes <= size_; }
+  bool HasMore(size_t bytes = 1) const { return offset_ + bytes <= size_; }
 
   /**
    * @return Whether the buffer is at capacity. (All usable space is filled
    *          with meaningful bytes)
    */
-  bool Full() { return size_ == Capacity(); }
+  bool Full() const { return size_ == Capacity(); }
 
   /**
    * @return Iterator to the beginning of the buffer
@@ -79,6 +79,8 @@ class Buffer {
     size_ = unprocessed_len;
     offset_ = 0;
   }
+
+  size_t Size() const { return size_; }
 
  protected:
   /**
@@ -277,7 +279,7 @@ class ReadBuffer : public Buffer {
    * current read cursor)
    * @return The number of bytes available to be consumed
    */
-  size_t BytesAvailable() { return size_ - offset_; }
+  size_t BytesAvailable() const { return size_ - offset_; }
 
   /**
    * Mark a chunk of bytes as read and return a view to the bytes read.
@@ -340,13 +342,13 @@ class WriteBuffer : public Buffer {
    * maximum capacity minus the capacity already in use.
    * @return Remaining capacity
    */
-  size_t RemainingCapacity() { return Capacity() - size_; }
+  size_t RemainingCapacity() const { return Capacity() - size_; }
 
   /**
    * @param bytes Desired number of bytes to write
    * @return Whether the buffer can accommodate the number of bytes given
    */
-  bool HasSpaceFor(size_t bytes) { return RemainingCapacity() >= bytes; }
+  bool HasSpaceFor(size_t bytes) const { return RemainingCapacity() >= bytes; }
 
   /**
    * Append the desired range into current buffer.
@@ -414,7 +416,7 @@ class WriteQueue {
   /**
    * @return The head of the WriteQueue
    */
-  common::ManagedPointer<WriteBuffer> FlushHead() {
+  common::ManagedPointer<WriteBuffer> FlushHead() const {
     if (buffers_.size() > offset_) return common::ManagedPointer(buffers_[offset_]);
     return nullptr;
   }
@@ -437,7 +439,7 @@ class WriteQueue {
    * a small response)
    * @return whether we should flush this write queue
    */
-  bool ShouldFlush() { return flush_ || buffers_.size() > 1; }
+  bool ShouldFlush() const { return flush_ || buffers_.size() > 1; }
 
   /**
    * Write len many bytes starting from src into the write queue, allocating
@@ -472,6 +474,14 @@ class WriteQueue {
   template <typename T>
   void BufferWriteRawValue(T val, bool breakup = true) {
     BufferWriteRaw(&val, sizeof(T), breakup);
+  }
+
+  size_t Size() const {
+    size_t size = 0;
+    for (const auto &write_buffer : buffers_) {
+      size += write_buffer->Size();
+    }
+    return size;
   }
 
  private:
